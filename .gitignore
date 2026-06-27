@@ -1,0 +1,7 @@
+target/
+MiProyecto/
+*.class
+.idea/
+.vscode/
+*.iml
+.DS_Store
