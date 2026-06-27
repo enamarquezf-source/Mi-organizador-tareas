@@ -28,6 +28,7 @@ public class TareaDialog extends JDialog {
     private static final int MAX_DESCRIPCION = 300;
 
     private final JTextField fechaField = new JTextField(12);
+    private final JTextField fechaFinField = new JTextField(12);
     private final JTextField horaField = new JTextField(8);
     private final JTextArea descripcionArea = new JTextArea(5, 30);
     private final Integer tareaId;
@@ -43,9 +44,11 @@ public class TareaDialog extends JDialog {
 
         if (tareaExistente == null) {
             fechaField.setText(fechaInicial.format(FECHA_FORMATTER));
+            fechaFinField.setText(fechaInicial.format(FECHA_FORMATTER));
             horaField.setText(LocalTime.now().withSecond(0).withNano(0).format(HORA_FORMATTER));
         } else {
             fechaField.setText(tareaExistente.getFecha().format(FECHA_FORMATTER));
+            fechaFinField.setText(tareaExistente.getFechaFin().format(FECHA_FORMATTER));
             horaField.setText(tareaExistente.getHora().format(HORA_FORMATTER));
             descripcionArea.setText(tareaExistente.getDescripcion());
         }
@@ -79,12 +82,14 @@ public class TareaDialog extends JDialog {
         descripcionArea.setLineWrap(true);
         descripcionArea.setWrapStyleWord(true);
         themeManager.styleInput(fechaField);
+        themeManager.styleInput(fechaFinField);
         themeManager.styleInput(horaField);
         themeManager.styleInput(descripcionArea);
 
-        agregarFila(formulario, c, 0, "Fecha (yyyy-MM-dd):", fechaField);
-        agregarFila(formulario, c, 1, "Hora (HH:mm):", horaField);
-        agregarFila(formulario, c, 2, "Descripción:", new JScrollPane(descripcionArea));
+        agregarFila(formulario, c, 0, "Fecha inicio (yyyy-MM-dd):", fechaField);
+        agregarFila(formulario, c, 1, "Fecha fin (opcional):", fechaFinField);
+        agregarFila(formulario, c, 2, "Hora (HH:mm):", horaField);
+        agregarFila(formulario, c, 3, "Descripción:", new JScrollPane(descripcionArea));
 
         contenido.add(formulario, BorderLayout.CENTER);
         contenido.add(crearBotones(), BorderLayout.SOUTH);
@@ -143,6 +148,8 @@ public class TareaDialog extends JDialog {
     private void guardar() {
         try {
             LocalDate fecha = LocalDate.parse(fechaField.getText().trim(), FECHA_FORMATTER);
+            String fechaFinTexto = fechaFinField.getText().trim();
+            LocalDate fechaFin = fechaFinTexto.isEmpty() ? fecha : LocalDate.parse(fechaFinTexto, FECHA_FORMATTER);
             LocalTime hora = LocalTime.parse(horaField.getText().trim(), HORA_FORMATTER);
             String descripcion = descripcionArea.getText().trim();
 
@@ -152,14 +159,17 @@ public class TareaDialog extends JDialog {
             if (descripcion.length() > MAX_DESCRIPCION) {
                 throw new IllegalArgumentException("La descripción no puede superar " + MAX_DESCRIPCION + " caracteres.");
             }
+            if (fechaFin.isBefore(fecha)) {
+                throw new IllegalArgumentException("La fecha fin no puede ser anterior a la fecha de inicio.");
+            }
 
-            tarea = new Tarea(tareaId, fecha, hora, descripcion);
+            tarea = new Tarea(tareaId, fecha, fechaFin, hora, descripcion);
             guardado = true;
             dispose();
         } catch (DateTimeParseException ex) {
             JOptionPane.showMessageDialog(
                     this,
-                    "Revise la fecha y la hora. Use fecha yyyy-MM-dd y hora HH:mm.",
+                    "Revise las fechas y la hora. Use fechas yyyy-MM-dd y hora HH:mm.",
                     "Datos no válidos",
                     JOptionPane.WARNING_MESSAGE
             );

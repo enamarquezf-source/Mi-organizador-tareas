@@ -18,15 +18,19 @@ public class TareaService {
     }
 
     public void crearTarea(LocalDate fecha, LocalTime hora, String descripcion) throws SQLException {
-        validar(fecha, hora, descripcion);
-        tareaDAO.crear(new Tarea(null, fecha, hora, descripcion.trim()));
+        crearTarea(fecha, fecha, hora, descripcion);
+    }
+
+    public void crearTarea(LocalDate fecha, LocalDate fechaFin, LocalTime hora, String descripcion) throws SQLException {
+        validar(fecha, fechaFin, hora, descripcion);
+        tareaDAO.crear(new Tarea(null, fecha, fechaFin, hora, descripcion.trim()));
     }
 
     public void actualizarTarea(Tarea tarea) throws SQLException {
         if (tarea == null || tarea.getId() == null) {
             throw new IllegalArgumentException("Debe seleccionar una tarea válida para editar.");
         }
-        validar(tarea.getFecha(), tarea.getHora(), tarea.getDescripcion());
+        validar(tarea.getFecha(), tarea.getFechaFin(), tarea.getHora(), tarea.getDescripcion());
         tarea.setDescripcion(tarea.getDescripcion().trim());
         tareaDAO.actualizar(tarea);
     }
@@ -49,10 +53,16 @@ public class TareaService {
         return tareaDAO.listarPorFecha(fecha);
     }
 
-    private void validar(LocalDate fecha, LocalTime hora, String descripcion) {
+    private void validar(LocalDate fecha, LocalDate fechaFin, LocalTime hora, String descripcion) {
         // Las reglas se centralizan para que crear y editar usen la misma proteccion.
         if (fecha == null) {
             throw new IllegalArgumentException("La fecha es obligatoria.");
+        }
+        if (fechaFin == null) {
+            throw new IllegalArgumentException("La fecha fin es obligatoria.");
+        }
+        if (fechaFin.isBefore(fecha)) {
+            throw new IllegalArgumentException("La fecha fin no puede ser anterior a la fecha de inicio.");
         }
         if (hora == null) {
             throw new IllegalArgumentException("La hora es obligatoria y debe tener formato HH:mm.");

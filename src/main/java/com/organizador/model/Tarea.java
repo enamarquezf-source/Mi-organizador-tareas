@@ -6,12 +6,18 @@ import java.time.LocalTime;
 public class Tarea {
     private Integer id;
     private LocalDate fecha;
+    private LocalDate fechaFin;
     private LocalTime hora;
     private String descripcion;
 
     public Tarea(Integer id, LocalDate fecha, LocalTime hora, String descripcion) {
+        this(id, fecha, fecha, hora, descripcion);
+    }
+
+    public Tarea(Integer id, LocalDate fecha, LocalDate fechaFin, LocalTime hora, String descripcion) {
         this.id = id;
         this.fecha = fecha;
+        this.fechaFin = fechaFin == null ? fecha : fechaFin;
         this.hora = hora;
         this.descripcion = descripcion;
     }
@@ -28,6 +34,10 @@ public class Tarea {
         return hora;
     }
 
+    public LocalDate getFechaFin() {
+        return fechaFin;
+    }
+
     public String getDescripcion() {
         return descripcion;
     }
@@ -38,6 +48,10 @@ public class Tarea {
 
     public void setFecha(LocalDate fecha) {
         this.fecha = fecha;
+    }
+
+    public void setFechaFin(LocalDate fechaFin) {
+        this.fechaFin = fechaFin;
     }
 
     public void setHora(LocalTime hora) {

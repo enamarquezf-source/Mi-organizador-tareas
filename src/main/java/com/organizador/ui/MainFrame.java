@@ -212,7 +212,7 @@ public class MainFrame extends JFrame {
         List<Tarea> result = new ArrayList<>();
         while (!current.isAfter(limit)) {
             for (Tarea task : tareaService.listarPorMes(current.getYear(), current.getMonthValue())) {
-                if (!task.getFecha().isBefore(today)) {
+                if (!task.getFechaFin().isBefore(today)) {
                     result.add(task);
                 }
             }
@@ -235,11 +235,12 @@ public class MainFrame extends JFrame {
 
         try {
             Tarea task = dialog.getTarea();
-            tareaService.crearTarea(task.getFecha(), task.getHora(), task.getDescripcion());
+            tareaService.crearTarea(task.getFecha(), task.getFechaFin(), task.getHora(), task.getDescripcion());
             selectedDate = task.getFecha();
             visibleMonth = YearMonth.from(selectedDate);
             reloadAll();
-            if (task.getFecha().equals(LocalDate.now())) {
+            LocalDate today = LocalDate.now();
+            if (!today.isBefore(task.getFecha()) && !today.isAfter(task.getFechaFin())) {
                 showTaskReminder(List.of(task));
             }
         } catch (IllegalArgumentException ex) {

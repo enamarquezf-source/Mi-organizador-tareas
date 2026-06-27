@@ -108,7 +108,13 @@ public class TasksOverviewPanel extends JPanel {
     private Map<LocalDate, java.util.List<Tarea>> groupByDate(List<Tarea> tasks) {
         Map<LocalDate, java.util.List<Tarea>> grouped = new LinkedHashMap<>();
         for (Tarea task : tasks) {
-            grouped.computeIfAbsent(task.getFecha(), ignored -> new java.util.ArrayList<>()).add(task);
+            LocalDate date = task.getFecha();
+            while (!date.isAfter(task.getFechaFin())) {
+                if (!date.isBefore(LocalDate.now())) {
+                    grouped.computeIfAbsent(date, ignored -> new java.util.ArrayList<>()).add(task);
+                }
+                date = date.plusDays(1);
+            }
         }
         return grouped;
     }

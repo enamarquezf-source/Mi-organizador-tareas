@@ -20,26 +20,28 @@ public class TareaDAO {
     }
 
     public void crear(Tarea tarea) throws SQLException {
-        String sql = "INSERT INTO tareas(fecha, hora, descripcion) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO tareas(fecha, fecha_fin, hora, descripcion) VALUES (?, ?, ?, ?)";
 
         try (Connection connection = databaseManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, tarea.getFecha().toString());
-            statement.setString(2, tarea.getHora().toString());
-            statement.setString(3, tarea.getDescripcion());
+            statement.setString(2, tarea.getFechaFin().toString());
+            statement.setString(3, tarea.getHora().toString());
+            statement.setString(4, tarea.getDescripcion());
             statement.executeUpdate();
         }
     }
 
     public void actualizar(Tarea tarea) throws SQLException {
-        String sql = "UPDATE tareas SET fecha = ?, hora = ?, descripcion = ? WHERE id = ?";
+        String sql = "UPDATE tareas SET fecha = ?, fecha_fin = ?, hora = ?, descripcion = ? WHERE id = ?";
 
         try (Connection connection = databaseManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, tarea.getFecha().toString());
-            statement.setString(2, tarea.getHora().toString());
-            statement.setString(3, tarea.getDescripcion());
-            statement.setInt(4, tarea.getId());
+            statement.setString(2, tarea.getFechaFin().toString());
+            statement.setString(3, tarea.getHora().toString());
+            statement.setString(4, tarea.getDescripcion());
+            statement.setInt(5, tarea.getId());
             statement.executeUpdate();
         }
     }
@@ -56,33 +58,34 @@ public class TareaDAO {
 
     public List<Tarea> listarPorMes(int year, int month) throws SQLException {
         LocalDate inicio = LocalDate.of(year, month, 1);
-        LocalDate fin = inicio.plusMonths(1);
+        LocalDate fin = inicio.plusMonths(1).minusDays(1);
         String sql = """
-                SELECT id, fecha, hora, descripcion
+                SELECT id, fecha, fecha_fin, hora, descripcion
                 FROM tareas
-                WHERE fecha >= ? AND fecha < ?
+                WHERE fecha <= ? AND COALESCE(fecha_fin, fecha) >= ?
                 ORDER BY fecha ASC, hora ASC
                 """;
 
         try (Connection connection = databaseManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, inicio.toString());
-            statement.setString(2, fin.toString());
+            statement.setString(1, fin.toString());
+            statement.setString(2, inicio.toString());
             return ejecutarListado(statement);
         }
     }
 
     public List<Tarea> listarPorFecha(LocalDate fecha) throws SQLException {
         String sql = """
-                SELECT id, fecha, hora, descripcion
+                SELECT id, fecha, fecha_fin, hora, descripcion
                 FROM tareas
-                WHERE fecha = ?
+                WHERE fecha <= ? AND COALESCE(fecha_fin, fecha) >= ?
                 ORDER BY hora ASC
                 """;
 
         try (Connection connection = databaseManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, fecha.toString());
+            statement.setString(2, fecha.toString());
             return ejecutarListado(statement);
         }
     }
@@ -94,11 +97,16 @@ public class TareaDAO {
                 tareas.add(new Tarea(
                         resultSet.getInt("id"),
                         LocalDate.parse(resultSet.getString("fecha")),
+                        parseFechaFin(resultSet.getString("fecha_fin"), resultSet.getString("fecha")),
                         LocalTime.parse(resultSet.getString("hora")),
                         resultSet.getString("descripcion")
                 ));
             }
             return tareas;
         }
+    }
+
+    private LocalDate parseFechaFin(String fechaFin, String fechaInicio) {
+        return LocalDate.parse(fechaFin == null || fechaFin.isBlank() ? fechaInicio : fechaFin);
     }
 }

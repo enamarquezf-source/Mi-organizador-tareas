@@ -92,7 +92,11 @@ public class MonthViewPanel extends JPanel {
     private Map<LocalDate, List<Tarea>> groupByDate(List<Tarea> tasks) {
         Map<LocalDate, List<Tarea>> result = new HashMap<>();
         for (Tarea task : tasks) {
-            result.computeIfAbsent(task.getFecha(), ignored -> new ArrayList<>()).add(task);
+            LocalDate date = task.getFecha();
+            while (!date.isAfter(task.getFechaFin())) {
+                result.computeIfAbsent(date, ignored -> new ArrayList<>()).add(task);
+                date = date.plusDays(1);
+            }
         }
         return result;
     }
