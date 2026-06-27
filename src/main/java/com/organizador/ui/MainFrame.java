@@ -4,57 +4,60 @@ import com.organizador.model.Tarea;
 import com.organizador.service.TareaService;
 
 import javax.swing.BorderFactory;
-import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
-import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
-import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.GridLayout;
 import java.net.URL;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 public class MainFrame extends JFrame {
-    private static final DateTimeFormatter HORA_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     private static final Locale SPANISH = Locale.forLanguageTag("es-ES");
 
     private final TareaService tareaService;
-    private final CalendarPanel calendarPanel = new CalendarPanel();
-    private final JLabel mesLabel = new JLabel("", SwingConstants.CENTER);
-    private final JLabel fechaSeleccionadaLabel = new JLabel("Tareas del día");
-    private final DefaultListModel<Tarea> tareasListModel = new DefaultListModel<>();
-    private final JList<Tarea> tareasList = new JList<>(tareasListModel);
+    private final ThemeManager themeManager = new ThemeManager();
+    private final CalendarPanel calendarPanel = new CalendarPanel(themeManager);
+    private final HeaderPanel headerPanel;
+    private final SidebarPanel sidebarPanel;
+    private final TaskPanel taskPanel;
+    private final JPanel root = new JPanel(new BorderLayout(16, 16));
+    private final RoundedPanel centerPanel = new RoundedPanel(26);
 
-    private YearMonth mesVisible = YearMonth.now();
-    private LocalDate fechaSeleccionada = LocalDate.now();
+    private YearMonth visibleMonth = YearMonth.now();
+    private LocalDate selectedDate = LocalDate.now();
+    private CalendarPanel.ViewMode viewMode = CalendarPanel.ViewMode.MONTH;
 
     public MainFrame(TareaService tareaService) {
         this.tareaService = tareaService;
-        configurarVentana();
-        construirInterfaz();
-        recargarTodo();
+        headerPanel = new HeaderPanel(
+                themeManager,
+                () -> changePeriod(-1),
+                () -> changePeriod(1),
+                this::changeView,
+                this::toggleTheme,
+                this::openNewTaskDialog
+        );
+        sidebarPanel = new SidebarPanel(themeManager, this::handleSidebarOption);
+        taskPanel = new TaskPanel(themeManager, this::editSelectedTask, this::deleteSelectedTask);
+
+        configureWindow();
+        buildInterface();
+        reloadAll();
     }
 
-    private void configurarVentana() {
+    private void configureWindow() {
         setTitle("Mi Organizador de Tareas");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(1050, 680));
+        setMinimumSize(new Dimension(1280, 780));
         setLocationRelativeTo(null);
 
         URL iconUrl = getClass().getResource("/icon.png");
@@ -63,224 +66,211 @@ public class MainFrame extends JFrame {
         }
     }
 
-    private void construirInterfaz() {
-        JPanel root = new JPanel(new BorderLayout(14, 14));
-        root.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
-        root.setBackground(new Color(245, 247, 250));
+    private void buildInterface() {
+        root.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
+        centerPanel.setLayout(new BorderLayout());
+        centerPanel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+        centerPanel.add(calendarPanel, BorderLayout.CENTER);
 
-        calendarPanel.setOnFechaSeleccionada(fecha -> {
-            fechaSeleccionada = fecha;
-            recargarTodo();
+        calendarPanel.setOnFechaSeleccionada(date -> {
+            selectedDate = date;
+            visibleMonth = YearMonth.from(date);
+            sidebarPanel.setActiveOption("Calendario");
+            reloadAll();
         });
 
-        root.add(crearCabecera(), BorderLayout.NORTH);
-        root.add(crearCentro(), BorderLayout.CENTER);
-        root.add(crearPanelTareas(), BorderLayout.EAST);
+        root.add(headerPanel, BorderLayout.NORTH);
+        root.add(sidebarPanel, BorderLayout.WEST);
+        root.add(centerPanel, BorderLayout.CENTER);
+        root.add(taskPanel, BorderLayout.EAST);
         setContentPane(root);
+        applyTheme();
     }
 
-    private JPanel crearCabecera() {
-        JPanel header = new JPanel(new BorderLayout(10, 10));
-        header.setOpaque(false);
-
-        JLabel titulo = new JLabel("Mi Organizador de Tareas");
-        titulo.setFont(titulo.getFont().deriveFont(Font.BOLD, 24f));
-
-        JButton anteriorButton = new JButton("< Mes anterior");
-        anteriorButton.addActionListener(event -> cambiarMes(-1));
-
-        JButton siguienteButton = new JButton("Mes siguiente >");
-        siguienteButton.addActionListener(event -> cambiarMes(1));
-
-        JButton agregarButton = new JButton("+ Añadir tarea");
-        agregarButton.addActionListener(event -> abrirDialogoNuevaTarea());
-
-        mesLabel.setFont(mesLabel.getFont().deriveFont(Font.BOLD, 18f));
-
-        JPanel navegacion = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
-        navegacion.setOpaque(false);
-        navegacion.add(anteriorButton);
-        navegacion.add(mesLabel);
-        navegacion.add(siguienteButton);
-
-        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        acciones.setOpaque(false);
-        acciones.add(agregarButton);
-
-        header.add(titulo, BorderLayout.WEST);
-        header.add(navegacion, BorderLayout.CENTER);
-        header.add(acciones, BorderLayout.EAST);
-        return header;
-    }
-
-    private JPanel crearCentro() {
-        JPanel centro = new JPanel(new BorderLayout(0, 8));
-        centro.setOpaque(false);
-
-        JPanel diasSemana = new JPanel(new GridLayout(1, 7, 6, 6));
-        diasSemana.setOpaque(false);
-        for (String dia : List.of("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")) {
-            JLabel label = new JLabel(dia, SwingConstants.CENTER);
-            label.setFont(label.getFont().deriveFont(Font.BOLD));
-            diasSemana.add(label);
+    private void handleSidebarOption(String option) {
+        sidebarPanel.setActiveOption(option);
+        if ("Hoy".equals(option)) {
+            selectedDate = LocalDate.now();
+            visibleMonth = YearMonth.from(selectedDate);
         }
-
-        centro.add(diasSemana, BorderLayout.NORTH);
-        centro.add(calendarPanel, BorderLayout.CENTER);
-        return centro;
+        if ("Tareas".equals(option)) {
+            taskPanel.setCollapsed(false);
+        }
+        // Ajustes solo queda seleccionado visualmente; el tema se cambia con el botón sol/luna.
+        reloadAll();
     }
 
-    private JPanel crearPanelTareas() {
-        JPanel panel = new JPanel(new BorderLayout(0, 10));
-        panel.setPreferredSize(new Dimension(330, 0));
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 225, 232)),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)
-        ));
-
-        fechaSeleccionadaLabel.setFont(fechaSeleccionadaLabel.getFont().deriveFont(Font.BOLD, 18f));
-
-        tareasList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tareasList.setCellRenderer((list, tarea, index, isSelected, cellHasFocus) -> {
-            JLabel label = new JLabel(HORA_FORMATTER.format(tarea.getHora()) + " - " + tarea.getDescripcion());
-            label.setOpaque(true);
-            label.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-            label.setBackground(isSelected ? new Color(216, 232, 255) : Color.WHITE);
-            return label;
-        });
-
-        JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton editarButton = new JButton("Editar");
-        JButton eliminarButton = new JButton("Eliminar");
-
-        editarButton.addActionListener(event -> editarTareaSeleccionada());
-        eliminarButton.addActionListener(event -> eliminarTareaSeleccionada());
-
-        botones.add(editarButton);
-        botones.add(eliminarButton);
-
-        panel.add(fechaSeleccionadaLabel, BorderLayout.NORTH);
-        panel.add(new JScrollPane(tareasList), BorderLayout.CENTER);
-        panel.add(botones, BorderLayout.SOUTH);
-        return panel;
+    private void changeView(CalendarPanel.ViewMode mode) {
+        viewMode = mode;
+        calendarPanel.setViewMode(mode);
+        headerPanel.setViewMode(mode);
+        reloadAll();
     }
 
-    private void cambiarMes(int diferencia) {
-        mesVisible = mesVisible.plusMonths(diferencia);
-        fechaSeleccionada = mesVisible.atDay(1);
-        recargarTodo();
+    private void changePeriod(int amount) {
+        if (viewMode == CalendarPanel.ViewMode.MONTH) {
+            visibleMonth = visibleMonth.plusMonths(amount);
+            selectedDate = visibleMonth.atDay(Math.min(selectedDate.getDayOfMonth(), visibleMonth.lengthOfMonth()));
+        } else if (viewMode == CalendarPanel.ViewMode.WEEK) {
+            selectedDate = selectedDate.plusWeeks(amount);
+            visibleMonth = YearMonth.from(selectedDate);
+        } else {
+            selectedDate = selectedDate.plusDays(amount);
+            visibleMonth = YearMonth.from(selectedDate);
+        }
+        reloadAll();
     }
 
-    private void recargarTodo() {
+    private void toggleTheme() {
+        themeManager.toggleTheme();
+        applyTheme();
+        reloadAll();
+    }
+
+    private void applyTheme() {
+        root.setBackground(themeManager.background());
+        centerPanel.setBackground(themeManager.surface());
+        headerPanel.applyTheme();
+        sidebarPanel.applyTheme();
+        taskPanel.applyTheme();
+        calendarPanel.applyTheme();
+        applyTextTheme(root);
+        repaint();
+    }
+
+    private void reloadAll() {
         try {
-            mesLabel.setText(formatearMes(mesVisible));
-            List<Tarea> tareasMes = tareaService.listarPorMes(mesVisible.getYear(), mesVisible.getMonthValue());
-            calendarPanel.mostrarMes(mesVisible, fechaSeleccionada, tareasMes);
-            recargarTareasDelDia();
+            headerPanel.setMonthText(formatMonth(visibleMonth));
+            headerPanel.setViewMode(viewMode);
+            List<Tarea> monthTasks = tareaService.listarPorMes(visibleMonth.getYear(), visibleMonth.getMonthValue());
+            List<Tarea> visibleRangeTasks = loadVisibleRangeTasks();
+            List<Tarea> dayTasks = tareaService.listarPorFecha(selectedDate);
+            calendarPanel.setViewMode(viewMode);
+            calendarPanel.mostrar(visibleMonth, selectedDate, monthTasks, visibleRangeTasks, dayTasks);
+            taskPanel.setTasks(selectedDate, dayTasks);
         } catch (SQLException ex) {
-            mostrarError("No se pudieron cargar las tareas: " + ex.getMessage());
+            showError("No se pudieron cargar las tareas. Inténtelo de nuevo.");
+        } catch (IllegalArgumentException ex) {
+            showError(ex.getMessage());
         }
     }
 
-    private void recargarTareasDelDia() throws SQLException {
-        tareasListModel.clear();
-        fechaSeleccionadaLabel.setText("Tareas del " + fechaSeleccionada);
-        for (Tarea tarea : tareaService.listarPorFecha(fechaSeleccionada)) {
-            tareasListModel.addElement(tarea);
+    private List<Tarea> loadVisibleRangeTasks() throws SQLException {
+        if (viewMode == CalendarPanel.ViewMode.DAY) {
+            return tareaService.listarPorFecha(selectedDate);
         }
+        LocalDate start = selectedDate.minusDays(selectedDate.getDayOfWeek().getValue() - 1L);
+        LocalDate end = start.plusDays(6);
+        List<Tarea> result = new ArrayList<>();
+        YearMonth current = YearMonth.from(start);
+        YearMonth endMonth = YearMonth.from(end);
+        while (!current.isAfter(endMonth)) {
+            for (Tarea task : tareaService.listarPorMes(current.getYear(), current.getMonthValue())) {
+                if (!task.getFecha().isBefore(start) && !task.getFecha().isAfter(end)) {
+                    result.add(task);
+                }
+            }
+            current = current.plusMonths(1);
+        }
+        return result;
     }
 
-    private void abrirDialogoNuevaTarea() {
-        TareaDialog dialog = new TareaDialog(this, fechaSeleccionada, null);
+    private void openNewTaskDialog() {
+        TareaDialog dialog = new TareaDialog(this, selectedDate, null, themeManager);
         dialog.setVisible(true);
-
         if (!dialog.isGuardado()) {
             return;
         }
 
         try {
-            Tarea tarea = dialog.getTarea();
-            tareaService.crearTarea(tarea.getFecha(), tarea.getHora(), tarea.getDescripcion());
-            mesVisible = YearMonth.from(tarea.getFecha());
-            fechaSeleccionada = tarea.getFecha();
-            recargarTodo();
-            mostrarInfo("Tarea guardada correctamente.");
+            Tarea task = dialog.getTarea();
+            tareaService.crearTarea(task.getFecha(), task.getHora(), task.getDescripcion());
+            selectedDate = task.getFecha();
+            visibleMonth = YearMonth.from(selectedDate);
+            reloadAll();
+            showInfo("Tarea guardada correctamente.");
         } catch (IllegalArgumentException ex) {
-            mostrarError(ex.getMessage());
+            showError(ex.getMessage());
         } catch (SQLException ex) {
-            mostrarError("No se pudo guardar la tarea: " + ex.getMessage());
+            showError("No se pudo guardar la tarea. Inténtelo de nuevo.");
         }
     }
 
-    private void editarTareaSeleccionada() {
-        Tarea seleccionada = tareasList.getSelectedValue();
-        if (seleccionada == null) {
-            mostrarInfo("Seleccione una tarea para editar.");
+    private void editSelectedTask() {
+        Tarea selected = taskPanel.getSelectedTask();
+        if (selected == null) {
+            showInfo("Seleccione una tarea para editar.");
             return;
         }
 
-        TareaDialog dialog = new TareaDialog(this, seleccionada.getFecha(), seleccionada);
+        TareaDialog dialog = new TareaDialog(this, selected.getFecha(), selected, themeManager);
         dialog.setVisible(true);
-
         if (!dialog.isGuardado()) {
             return;
         }
 
         try {
-            Tarea actualizada = dialog.getTarea();
-            tareaService.actualizarTarea(actualizada);
-            mesVisible = YearMonth.from(actualizada.getFecha());
-            fechaSeleccionada = actualizada.getFecha();
-            recargarTodo();
-            mostrarInfo("Tarea actualizada correctamente.");
+            Tarea updated = dialog.getTarea();
+            tareaService.actualizarTarea(updated);
+            selectedDate = updated.getFecha();
+            visibleMonth = YearMonth.from(selectedDate);
+            reloadAll();
+            showInfo("Tarea actualizada correctamente.");
         } catch (IllegalArgumentException ex) {
-            mostrarError(ex.getMessage());
+            showError(ex.getMessage());
         } catch (SQLException ex) {
-            mostrarError("No se pudo actualizar la tarea: " + ex.getMessage());
+            showError("No se pudo actualizar la tarea. Inténtelo de nuevo.");
         }
     }
 
-    private void eliminarTareaSeleccionada() {
-        Tarea seleccionada = tareasList.getSelectedValue();
-        if (seleccionada == null) {
-            mostrarInfo("Seleccione una tarea para eliminar.");
+    private void deleteSelectedTask() {
+        Tarea selected = taskPanel.getSelectedTask();
+        if (selected == null) {
+            showInfo("Seleccione una tarea para eliminar.");
             return;
         }
 
-        int respuesta = JOptionPane.showConfirmDialog(
+        int response = JOptionPane.showConfirmDialog(
                 this,
                 "¿Desea eliminar la tarea seleccionada?",
                 "Confirmar eliminación",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE
         );
-
-        if (respuesta != JOptionPane.YES_OPTION) {
+        if (response != JOptionPane.YES_OPTION) {
             return;
         }
 
         try {
-            tareaService.eliminarTarea(seleccionada);
-            recargarTodo();
-            mostrarInfo("Tarea eliminada correctamente.");
+            tareaService.eliminarTarea(selected);
+            reloadAll();
+            showInfo("Tarea eliminada correctamente.");
         } catch (IllegalArgumentException ex) {
-            mostrarError(ex.getMessage());
+            showError(ex.getMessage());
         } catch (SQLException ex) {
-            mostrarError("No se pudo eliminar la tarea: " + ex.getMessage());
+            showError("No se pudo eliminar la tarea. Inténtelo de nuevo.");
         }
     }
 
-    private String formatearMes(YearMonth mes) {
-        String nombreMes = mes.getMonth().getDisplayName(TextStyle.FULL, SPANISH);
-        return nombreMes.substring(0, 1).toUpperCase(SPANISH) + nombreMes.substring(1) + " " + mes.getYear();
+    private void applyTextTheme(Component component) {
+        component.setForeground(themeManager.text());
+        if (component instanceof java.awt.Container container) {
+            for (Component child : container.getComponents()) {
+                applyTextTheme(child);
+            }
+        }
     }
 
-    private void mostrarInfo(String mensaje) {
-        JOptionPane.showMessageDialog(this, mensaje, "Mi Organizador de Tareas", JOptionPane.INFORMATION_MESSAGE);
+    private String formatMonth(YearMonth month) {
+        String monthName = month.getMonth().getDisplayName(TextStyle.FULL, SPANISH);
+        return monthName.substring(0, 1).toUpperCase(SPANISH) + monthName.substring(1) + " " + month.getYear();
     }
 
-    private void mostrarError(String mensaje) {
-        JOptionPane.showMessageDialog(this, mensaje, "Mi Organizador de Tareas", JOptionPane.ERROR_MESSAGE);
+    private void showInfo(String message) {
+        JOptionPane.showMessageDialog(this, message, "Mi Organizador de Tareas", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void showError(String message) {
+        JOptionPane.showMessageDialog(this, message, "Mi Organizador de Tareas", JOptionPane.ERROR_MESSAGE);
     }
 }
