@@ -53,8 +53,10 @@ public class HeaderPanel extends JPanel {
         addViewButton(views, group, CalendarPanel.ViewMode.WEEK, "Semana", onViewChanged);
         addViewButton(views, group, CalendarPanel.ViewMode.DAY, "Día", onViewChanged);
 
-        dayButton = new ModernButton("DÍA", ModernButton.Style.SECONDARY, themeManager);
-        nightButton = new ModernButton("NOCHE", ModernButton.Style.SECONDARY, themeManager);
+        dayButton = new ModernButton("☀", ModernButton.Style.THEME_CHOICE, themeManager);
+        nightButton = new ModernButton("☾", ModernButton.Style.THEME_CHOICE, themeManager);
+        dayButton.setToolTipText("Modo día");
+        nightButton.setToolTipText("Modo noche");
         dayButton.addActionListener(event -> onThemeChanged.accept(ThemeManager.Theme.LIGHT));
         nightButton.addActionListener(event -> onThemeChanged.accept(ThemeManager.Theme.DARK));
         addButton = new ModernButton("+ Añadir tarea", ModernButton.Style.PRIMARY, themeManager);

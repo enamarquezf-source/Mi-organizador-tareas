@@ -31,10 +31,10 @@ public class ModernButton extends JButton {
 
     public void applyTheme(ThemeManager themeManager) {
         this.themeManager = themeManager;
-        setFont(ThemeManager.FONT_BASE.deriveFont(java.awt.Font.BOLD, style == Style.THEME ? 20f : style == Style.SIDEBAR ? 14f : 13f));
+        setFont(ThemeManager.FONT_BASE.deriveFont(java.awt.Font.BOLD, style == Style.THEME || style == Style.THEME_CHOICE ? 20f : style == Style.SIDEBAR ? 14f : 13f));
         setForeground(foregroundColor());
-        setBorder(javax.swing.BorderFactory.createEmptyBorder(9, style == Style.THEME ? 10 : 14, 9, style == Style.THEME ? 10 : 14));
-        if (style == Style.THEME) {
+        setBorder(javax.swing.BorderFactory.createEmptyBorder(9, style == Style.THEME || style == Style.THEME_CHOICE ? 10 : 14, 9, style == Style.THEME || style == Style.THEME_CHOICE ? 10 : 14));
+        if (style == Style.THEME || style == Style.THEME_CHOICE) {
             setPreferredSize(new Dimension(42, 38));
         }
         repaint();
@@ -45,7 +45,7 @@ public class ModernButton extends JButton {
         Graphics2D g2 = (Graphics2D) graphics.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setColor(backgroundColor());
-        if (style == Style.THEME) {
+        if (style == Style.THEME || style == Style.THEME_CHOICE) {
             g2.fillOval(2, 2, getWidth() - 4, getHeight() - 4);
         } else {
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
@@ -70,6 +70,9 @@ public class ModernButton extends JButton {
         if (style == Style.THEME) {
             return themeManager.isDark() ? new Color(254, 240, 138) : new Color(30, 41, 59);
         }
+        if (style == Style.THEME_CHOICE) {
+            return active ? themeManager.accent() : themeManager.surfaceAlt();
+        }
         if (active) {
             return themeManager.accentSoft();
         }
@@ -86,6 +89,9 @@ public class ModernButton extends JButton {
         if (style == Style.THEME) {
             return themeManager.isDark() ? new Color(30, 41, 59) : Color.WHITE;
         }
+        if (style == Style.THEME_CHOICE) {
+            return active ? Color.WHITE : themeManager.text();
+        }
         if (active) {
             return themeManager.text();
         }
@@ -99,6 +105,7 @@ public class ModernButton extends JButton {
         DANGER,
         SIDEBAR,
         ICON,
-        THEME
+        THEME,
+        THEME_CHOICE
     }
 }

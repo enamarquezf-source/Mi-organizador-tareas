@@ -39,6 +39,7 @@ public class MainFrame extends JFrame {
     private LocalDate selectedDate = LocalDate.now();
     private CalendarPanel.ViewMode viewMode = CalendarPanel.ViewMode.MONTH;
     private Section activeSection = Section.CALENDAR;
+    private LocalDate lastReminderDate;
 
     public MainFrame(TareaService tareaService) {
         this.tareaService = tareaService;
@@ -56,6 +57,7 @@ public class MainFrame extends JFrame {
         configureWindow();
         buildInterface();
         reloadAll();
+        showTodayReminderIfNeeded();
     }
 
     private void configureWindow() {
@@ -237,11 +239,38 @@ public class MainFrame extends JFrame {
             selectedDate = task.getFecha();
             visibleMonth = YearMonth.from(selectedDate);
             reloadAll();
+            if (task.getFecha().equals(LocalDate.now())) {
+                showTaskReminder(List.of(task));
+            }
         } catch (IllegalArgumentException ex) {
             showError(ex.getMessage());
         } catch (SQLException ex) {
             showError("No se pudo guardar la tarea. Inténtelo de nuevo.");
         }
+    }
+
+    private void showTodayReminderIfNeeded() {
+        LocalDate today = LocalDate.now();
+        if (today.equals(lastReminderDate)) {
+            return;
+        }
+        try {
+            List<Tarea> todayTasks = tareaService.listarPorFecha(today);
+            if (!todayTasks.isEmpty()) {
+                lastReminderDate = today;
+                showTaskReminder(todayTasks);
+            }
+        } catch (SQLException ex) {
+            showError("No se pudieron comprobar los avisos de hoy.");
+        }
+    }
+
+    private void showTaskReminder(List<Tarea> tasks) {
+        StringBuilder message = new StringBuilder("Tienes tareas para hoy:\n\n");
+        for (Tarea task : tasks) {
+            message.append(task.getHora()).append(" - ").append(task.getDescripcion()).append("\n");
+        }
+        JOptionPane.showMessageDialog(this, message.toString(), "Aviso de tareas", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void editSelectedTask() {
