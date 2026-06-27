@@ -15,7 +15,8 @@ public class HeaderPanel extends JPanel {
     private final JLabel monthLabel = new JLabel();
     private final ModernButton previousButton;
     private final ModernButton nextButton;
-    private final ModernButton themeButton;
+    private final ModernButton dayButton;
+    private final ModernButton nightButton;
     private final ModernButton addButton;
     private final Map<CalendarPanel.ViewMode, ModernButton> viewButtons = new EnumMap<>(CalendarPanel.ViewMode.class);
 
@@ -23,7 +24,7 @@ public class HeaderPanel extends JPanel {
                        Runnable onPrevious,
                        Runnable onNext,
                        Consumer<CalendarPanel.ViewMode> onViewChanged,
-                       Runnable onToggleTheme,
+                       Consumer<ThemeManager.Theme> onThemeChanged,
                        Runnable onAddTask) {
         this.themeManager = themeManager;
         setLayout(new BorderLayout(18, 0));
@@ -52,15 +53,18 @@ public class HeaderPanel extends JPanel {
         addViewButton(views, group, CalendarPanel.ViewMode.WEEK, "Semana", onViewChanged);
         addViewButton(views, group, CalendarPanel.ViewMode.DAY, "Día", onViewChanged);
 
-        themeButton = new ModernButton("☾", ModernButton.Style.ICON, themeManager);
-        themeButton.addActionListener(event -> onToggleTheme.run());
+        dayButton = new ModernButton("DÍA", ModernButton.Style.SECONDARY, themeManager);
+        nightButton = new ModernButton("NOCHE", ModernButton.Style.SECONDARY, themeManager);
+        dayButton.addActionListener(event -> onThemeChanged.accept(ThemeManager.Theme.LIGHT));
+        nightButton.addActionListener(event -> onThemeChanged.accept(ThemeManager.Theme.DARK));
         addButton = new ModernButton("+ Añadir tarea", ModernButton.Style.PRIMARY, themeManager);
         addButton.addActionListener(event -> onAddTask.run());
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
         actions.add(views);
-        actions.add(themeButton);
+        actions.add(dayButton);
+        actions.add(nightButton);
         actions.add(addButton);
 
         add(titleLabel, BorderLayout.WEST);
@@ -82,7 +86,8 @@ public class HeaderPanel extends JPanel {
     public void applyTheme() {
         setBackground(themeManager.background());
         applyThemeRecursive(this);
-        themeButton.setText(themeManager.isDark() ? "☀" : "☾");
+        dayButton.setActive(!themeManager.isDark());
+        nightButton.setActive(themeManager.isDark());
     }
 
     private void addViewButton(JPanel views, ButtonGroup group, CalendarPanel.ViewMode mode, String text,

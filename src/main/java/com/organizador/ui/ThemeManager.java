@@ -45,6 +45,12 @@ public class ThemeManager {
         applySwingDefaults();
     }
 
+    public void setTheme(Theme theme) {
+        this.theme = theme;
+        PREFERENCES.put(PREF_THEME, theme.name());
+        applySwingDefaults();
+    }
+
     public Color background() {
         return isDark() ? new Color(18, 24, 38) : new Color(241, 245, 249);
     }
@@ -58,15 +64,15 @@ public class ThemeManager {
     }
 
     public Color sidebar() {
-        return isDark() ? new Color(15, 23, 42) : new Color(30, 41, 59);
+        return isDark() ? new Color(15, 23, 42) : Color.WHITE;
     }
 
     public Color sidebarText() {
-        return new Color(226, 232, 240);
+        return isDark() ? new Color(226, 232, 240) : new Color(15, 23, 42);
     }
 
     public Color sidebarMutedText() {
-        return new Color(148, 163, 184);
+        return isDark() ? new Color(148, 163, 184) : new Color(71, 85, 105);
     }
 
     public Color text() {

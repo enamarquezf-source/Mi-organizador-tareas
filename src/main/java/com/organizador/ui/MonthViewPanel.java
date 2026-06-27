@@ -30,6 +30,7 @@ public class MonthViewPanel extends JPanel {
 
     private final ThemeManager themeManager;
     private Consumer<LocalDate> onDateSelected;
+    private Consumer<LocalDate> onDateDoubleClicked;
     private LocalDate selectedDate;
 
     public MonthViewPanel(ThemeManager themeManager) {
@@ -40,6 +41,10 @@ public class MonthViewPanel extends JPanel {
 
     public void setOnDateSelected(Consumer<LocalDate> onDateSelected) {
         this.onDateSelected = onDateSelected;
+    }
+
+    public void setOnDateDoubleClicked(Consumer<LocalDate> onDateDoubleClicked) {
+        this.onDateDoubleClicked = onDateDoubleClicked;
     }
 
     public void showMonth(YearMonth month, LocalDate selectedDate, List<Tarea> tasks) {
@@ -107,6 +112,10 @@ public class MonthViewPanel extends JPanel {
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent event) {
+                    if (event.getClickCount() >= 2 && onDateDoubleClicked != null) {
+                        onDateDoubleClicked.accept(date);
+                        return;
+                    }
                     if (onDateSelected != null) {
                         onDateSelected.accept(date);
                     }

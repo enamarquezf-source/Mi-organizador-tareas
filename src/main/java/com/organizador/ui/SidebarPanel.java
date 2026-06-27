@@ -26,12 +26,11 @@ public class SidebarPanel extends RoundedPanel {
         JLabel title = new JLabel("Menú", SwingConstants.LEFT);
         title.setFont(ThemeManager.FONT_SUBTITLE);
 
-        JPanel menu = new JPanel(new GridLayout(4, 1, 0, 10));
+        JPanel menu = new JPanel(new GridLayout(3, 1, 0, 10));
         menu.setOpaque(false);
         addOption(menu, "Calendario", onOptionSelected);
         addOption(menu, "Hoy", onOptionSelected);
         addOption(menu, "Tareas", onOptionSelected);
-        addOption(menu, "Ajustes", onOptionSelected);
 
         add(title, BorderLayout.NORTH);
         add(menu, BorderLayout.CENTER);

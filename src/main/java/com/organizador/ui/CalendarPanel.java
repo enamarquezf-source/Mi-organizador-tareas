@@ -33,6 +33,10 @@ public class CalendarPanel extends JPanel {
         weekViewPanel.setOnDateSelected(onDateSelected);
     }
 
+    public void setOnFechaDobleClick(Consumer<LocalDate> onDateDoubleClicked) {
+        monthViewPanel.setOnDateDoubleClicked(onDateDoubleClicked);
+    }
+
     public void setViewMode(ViewMode viewMode) {
         this.viewMode = viewMode;
         cardLayout.show(this, viewMode.name());

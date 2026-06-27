@@ -7,6 +7,7 @@ import javax.swing.DefaultListModel;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
@@ -35,6 +36,7 @@ public class TaskPanel extends RoundedPanel {
     private final ModernButton editButton;
     private final ModernButton deleteButton;
     private final JPanel content = new JPanel(new BorderLayout(0, 14));
+    private JScrollPane scrollPane;
 
     private boolean collapsed;
 
@@ -84,9 +86,16 @@ public class TaskPanel extends RoundedPanel {
         dateLabel.setForeground(themeManager.mutedText());
         list.setBackground(themeManager.surface());
         list.setForeground(themeManager.text());
+        if (scrollPane != null) {
+            scrollPane.setBackground(themeManager.surface());
+            scrollPane.getViewport().setBackground(themeManager.surface());
+            styleScrollBar(scrollPane.getVerticalScrollBar());
+            styleScrollBar(scrollPane.getHorizontalScrollBar());
+        }
         toggleButton.applyTheme(themeManager);
         editButton.applyTheme(themeManager);
         deleteButton.applyTheme(themeManager);
+        list.repaint();
         repaint();
     }
 
@@ -106,10 +115,11 @@ public class TaskPanel extends RoundedPanel {
         list.setFixedCellHeight(72);
         list.setOpaque(false);
         list.setCellRenderer(this::renderTask);
-        JScrollPane scrollPane = new JScrollPane(list);
+        scrollPane = new JScrollPane(list);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setOpaque(false);
         scrollPane.getViewport().setOpaque(false);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
@@ -144,6 +154,13 @@ public class TaskPanel extends RoundedPanel {
 
     private String capitalize(String text) {
         return text.substring(0, 1).toUpperCase(Locale.forLanguageTag("es-ES")) + text.substring(1);
+    }
+
+    private void styleScrollBar(JScrollBar scrollBar) {
+        scrollBar.setBackground(themeManager.surface());
+        scrollBar.setForeground(themeManager.accent());
+        scrollBar.setPreferredSize(new Dimension(10, 10));
+        scrollBar.setUI(new ModernScrollBarUI(themeManager));
     }
 
     private String escape(String text) {

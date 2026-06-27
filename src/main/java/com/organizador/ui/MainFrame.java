@@ -9,6 +9,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.net.URL;
@@ -31,10 +32,13 @@ public class MainFrame extends JFrame {
     private final TaskPanel taskPanel;
     private final JPanel root = new JPanel(new BorderLayout(16, 16));
     private final RoundedPanel centerPanel = new RoundedPanel(26);
+    private final JPanel centerCards = new JPanel(new CardLayout());
+    private final TasksOverviewPanel tasksOverviewPanel = new TasksOverviewPanel(themeManager);
 
     private YearMonth visibleMonth = YearMonth.now();
     private LocalDate selectedDate = LocalDate.now();
     private CalendarPanel.ViewMode viewMode = CalendarPanel.ViewMode.MONTH;
+    private Section activeSection = Section.CALENDAR;
 
     public MainFrame(TareaService tareaService) {
         this.tareaService = tareaService;
@@ -43,7 +47,7 @@ public class MainFrame extends JFrame {
                 () -> changePeriod(-1),
                 () -> changePeriod(1),
                 this::changeView,
-                this::toggleTheme,
+                this::setTheme,
                 this::openNewTaskDialog
         );
         sidebarPanel = new SidebarPanel(themeManager, this::handleSidebarOption);
@@ -70,12 +74,24 @@ public class MainFrame extends JFrame {
         root.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
         centerPanel.setLayout(new BorderLayout());
         centerPanel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
-        centerPanel.add(calendarPanel, BorderLayout.CENTER);
+        centerCards.setOpaque(false);
+        centerCards.add(calendarPanel, Section.CALENDAR.name());
+        centerCards.add(tasksOverviewPanel, Section.TASKS.name());
+        centerPanel.add(centerCards, BorderLayout.CENTER);
 
         calendarPanel.setOnFechaSeleccionada(date -> {
             selectedDate = date;
             visibleMonth = YearMonth.from(date);
+            activeSection = Section.CALENDAR;
             sidebarPanel.setActiveOption("Calendario");
+            reloadAll();
+        });
+        calendarPanel.setOnFechaDobleClick(date -> {
+            selectedDate = date;
+            visibleMonth = YearMonth.from(date);
+            activeSection = Section.CALENDAR;
+            sidebarPanel.setActiveOption("Calendario");
+            taskPanel.setCollapsed(false);
             reloadAll();
         });
 
@@ -90,17 +106,26 @@ public class MainFrame extends JFrame {
     private void handleSidebarOption(String option) {
         sidebarPanel.setActiveOption(option);
         if ("Hoy".equals(option)) {
+            activeSection = Section.CALENDAR;
             selectedDate = LocalDate.now();
             visibleMonth = YearMonth.from(selectedDate);
+            viewMode = CalendarPanel.ViewMode.DAY;
         }
         if ("Tareas".equals(option)) {
+            activeSection = Section.TASKS;
             taskPanel.setCollapsed(false);
         }
-        // Ajustes solo queda seleccionado visualmente; el tema se cambia con el botón sol/luna.
+        if ("Calendario".equals(option)) {
+            activeSection = Section.CALENDAR;
+            viewMode = CalendarPanel.ViewMode.MONTH;
+            visibleMonth = YearMonth.from(selectedDate);
+        }
         reloadAll();
     }
 
     private void changeView(CalendarPanel.ViewMode mode) {
+        activeSection = Section.CALENDAR;
+        sidebarPanel.setActiveOption("Calendario");
         viewMode = mode;
         calendarPanel.setViewMode(mode);
         headerPanel.setViewMode(mode);
@@ -121,8 +146,8 @@ public class MainFrame extends JFrame {
         reloadAll();
     }
 
-    private void toggleTheme() {
-        themeManager.toggleTheme();
+    private void setTheme(ThemeManager.Theme theme) {
+        themeManager.setTheme(theme);
         applyTheme();
         reloadAll();
     }
@@ -134,6 +159,7 @@ public class MainFrame extends JFrame {
         sidebarPanel.applyTheme();
         taskPanel.applyTheme();
         calendarPanel.applyTheme();
+        tasksOverviewPanel.applyTheme();
         applyTextTheme(root);
         repaint();
     }
@@ -147,7 +173,9 @@ public class MainFrame extends JFrame {
             List<Tarea> dayTasks = tareaService.listarPorFecha(selectedDate);
             calendarPanel.setViewMode(viewMode);
             calendarPanel.mostrar(visibleMonth, selectedDate, monthTasks, visibleRangeTasks, dayTasks);
+            tasksOverviewPanel.showPendingTasks(loadPendingTasks());
             taskPanel.setTasks(selectedDate, dayTasks);
+            showActiveSection();
         } catch (SQLException ex) {
             showError("No se pudieron cargar las tareas. Inténtelo de nuevo.");
         } catch (IllegalArgumentException ex) {
@@ -175,6 +203,27 @@ public class MainFrame extends JFrame {
         return result;
     }
 
+    private List<Tarea> loadPendingTasks() throws SQLException {
+        LocalDate today = LocalDate.now();
+        YearMonth current = YearMonth.from(today);
+        YearMonth limit = current.plusMonths(12);
+        List<Tarea> result = new ArrayList<>();
+        while (!current.isAfter(limit)) {
+            for (Tarea task : tareaService.listarPorMes(current.getYear(), current.getMonthValue())) {
+                if (!task.getFecha().isBefore(today)) {
+                    result.add(task);
+                }
+            }
+            current = current.plusMonths(1);
+        }
+        return result;
+    }
+
+    private void showActiveSection() {
+        CardLayout layout = (CardLayout) centerCards.getLayout();
+        layout.show(centerCards, activeSection.name());
+    }
+
     private void openNewTaskDialog() {
         TareaDialog dialog = new TareaDialog(this, selectedDate, null, themeManager);
         dialog.setVisible(true);
@@ -188,7 +237,6 @@ public class MainFrame extends JFrame {
             selectedDate = task.getFecha();
             visibleMonth = YearMonth.from(selectedDate);
             reloadAll();
-            showInfo("Tarea guardada correctamente.");
         } catch (IllegalArgumentException ex) {
             showError(ex.getMessage());
         } catch (SQLException ex) {
@@ -253,6 +301,9 @@ public class MainFrame extends JFrame {
     }
 
     private void applyTextTheme(Component component) {
+        if (component instanceof ModernButton) {
+            return;
+        }
         component.setForeground(themeManager.text());
         if (component instanceof java.awt.Container container) {
             for (Component child : container.getComponents()) {
@@ -272,5 +323,10 @@ public class MainFrame extends JFrame {
 
     private void showError(String message) {
         JOptionPane.showMessageDialog(this, message, "Mi Organizador de Tareas", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private enum Section {
+        CALENDAR,
+        TASKS
     }
 }
